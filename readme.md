@@ -1,5 +1,7 @@
 # 🔑 DBMS Key Analyzer
 
+[![Live on Railway](https://img.shields.io/badge/Live%20App-Railway-green?logo=railway&style=for-the-badge)](https://key-analyzer-rdbms-production.up.railway.app)
+
 A full-stack web application that computes **Candidate Keys** and **Superkeys** from a given relation and its Functional Dependencies — a core problem in Relational Database Theory.
 
 ---

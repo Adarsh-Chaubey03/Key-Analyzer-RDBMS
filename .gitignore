@@ -1,0 +1,22 @@
+# === Build Output ===
+target/
+
+# === IDE ===
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Environment & Secrets ===
+.env
+*.env.*
+
+# === Maven Wrapper JAR (downloaded at build time) ===
+.mvn/wrapper/maven-wrapper.jar
+
+# === Logs ===
+*.log

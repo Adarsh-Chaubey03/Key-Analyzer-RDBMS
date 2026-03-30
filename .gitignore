@@ -1,34 +1,60 @@
-# === Build Output ===
+# === Build Outputs ===
 target/
+out/
+build/
+dist/
+coverage/
 
-# === IDE ===
-.idea/
-*.iml
-.vscode/
-*.swp
-
-# === OS ===
-.DS_Store
-Thumbs.db
-
-# === Environment & Secrets ===
-.env
-*.env.*
-
-# === Maven Wrapper JAR (downloaded at build time) ===
-.mvn/wrapper/maven-wrapper.jar
-
-# === Logs ===
-*.log
-
-# === Maven ===
+# === Maven / Local Caches ===
 .m2/
 
-# === Java ===
+# === Java Artifacts ===
 *.class
 *.jar
 *.war
+*.ear
+hs_err_pid*
+replay_pid*
 
-# === Dependencies ===
+# Keep the Maven wrapper JAR in the repo
+!.mvn/wrapper/maven-wrapper.jar
+
+# === IDE / Editors ===
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.metadata/
+*.swp
+*.swo
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# === Environment / Secrets ===
+.env
+.env.*
+*.local
+
+# === Logs / Runtime Files ===
+*.log
+*.pid
+app.pid
+
+# === Frontend Tooling Caches ===
 node_modules/
-package-lock.json
+.vercel/
+.turbo/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+
+# === Local-Only Helper Scripts ===
+run-local.cmd
+run-local.ps1

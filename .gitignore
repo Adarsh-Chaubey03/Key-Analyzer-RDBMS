@@ -20,3 +20,18 @@ Thumbs.db
 
 # === Logs ===
 *.log
+
+# === Maven ===
+.m2/
+.mvn/
+mvnw
+mvnw.cmd
+
+# === Java ===
+*.class
+*.jar
+*.war
+
+# === Dependencies ===
+node_modules/
+package-lock.json

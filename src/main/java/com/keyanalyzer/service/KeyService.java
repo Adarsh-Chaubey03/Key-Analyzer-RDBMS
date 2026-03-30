@@ -1,82 +1,116 @@
 package com.keyanalyzer.service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
 import com.keyanalyzer.core.KeyAnalyzer;
 import com.keyanalyzer.model.FunctionalDependency;
 import com.keyanalyzer.model.KeyRequest;
 import com.keyanalyzer.model.KeyResponse;
-import org.springframework.stereotype.Service;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class KeyService {
 
-    private static final int SUPERKEY_ATTRIBUTE_LIMIT = 8;
-
     public KeyResponse computeKeys(KeyRequest request) {
+        NormalizedRequest normalizedRequest = normalize(request);
+        KeyAnalyzer analyzer = new KeyAnalyzer(normalizedRequest.attributes(), normalizedRequest.fds());
 
-        List<String> attributes = request.getAttributes().stream()
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .distinct()
-                .collect(Collectors.toList());
-
-        // Normalize FDs: trim whitespace
-        List<FunctionalDependency> normalizedFds = new ArrayList<>();
-        for (FunctionalDependency fd : request.getFds()) {
-            List<String> left = fd.getLeft().stream().map(String::trim).collect(Collectors.toList());
-            List<String> right = fd.getRight().stream().map(String::trim).collect(Collectors.toList());
-            normalizedFds.add(new FunctionalDependency(left, right));
-        }
-
-        // Validate: all FD attributes must be in the attribute set
-        Set<String> attrSet = new LinkedHashSet<>(attributes);
-        for (FunctionalDependency fd : normalizedFds) {
-            for (String a : fd.getLeft()) {
-                if (!attrSet.contains(a))
-                    throw new IllegalArgumentException("Attribute '" + a + "' in FD left side is not in the relation.");
-            }
-            for (String a : fd.getRight()) {
-                if (!attrSet.contains(a))
-                    throw new IllegalArgumentException(
-                            "Attribute '" + a + "' in FD right side is not in the relation.");
-            }
-        }
-
-        KeyAnalyzer analyzer = new KeyAnalyzer(attributes, normalizedFds);
-
-        // Compute candidate keys
         List<Set<String>> candidateKeys = analyzer.findCandidateKeys();
-
-        // Compute superkeys (conditional)
         List<Set<String>> superkeys = analyzer.findSuperkeys();
 
-        // Build response
         KeyResponse response = new KeyResponse();
-        response.setCandidateKeys(
-                candidateKeys.stream()
-                        .map(s -> new ArrayList<>(s))
-                        .collect(Collectors.toList()));
-
-        if (superkeys != null) {
-            response.setSuperkeys(
-                    superkeys.stream()
-                            .map(s -> new ArrayList<>(s))
-                            .collect(Collectors.toList()));
-        } else {
-            response.setSuperkeys(
-                    "Superkey enumeration skipped — with " + attributes.size()
-                            + " attributes, the number of possible subsets (2^" + attributes.size() + " = "
-                            + (1L << attributes.size())
-                            + ") grows exponentially, making full enumeration computationally infeasible.");
-        }
+        response.setCandidateKeys(toLists(candidateKeys));
+        response.setSuperkeys(
+                superkeys != null
+                        ? toLists(superkeys)
+                        : buildSuperkeySkipMessage(normalizedRequest.attributes().size())
+        );
 
         Map<String, Object> info = new LinkedHashMap<>();
-        info.put("attributeCount", attributes.size());
+        info.put("attributeCount", normalizedRequest.attributes().size());
         info.put("candidateKeyCount", candidateKeys.size());
+        info.put("superkeysEnumerated", superkeys != null);
         response.setInfo(info);
 
         return response;
+    }
+
+    private NormalizedRequest normalize(KeyRequest request) {
+        List<String> attributes = normalizeAttributeList(request.getAttributes(), "Attributes list");
+        Set<String> relationAttributes = new LinkedHashSet<>(attributes);
+
+        List<FunctionalDependency> rawFds = request.getFds();
+        if (rawFds == null || rawFds.isEmpty()) {
+            throw new IllegalArgumentException("Functional dependencies list cannot be empty.");
+        }
+
+        List<FunctionalDependency> normalizedFds = rawFds.stream()
+                .map(this::normalizeFunctionalDependency)
+                .collect(Collectors.toList());
+
+        for (FunctionalDependency fd : normalizedFds) {
+            validateAttributesExist(relationAttributes, fd.getLeft(), "left");
+            validateAttributesExist(relationAttributes, fd.getRight(), "right");
+        }
+
+        return new NormalizedRequest(attributes, normalizedFds);
+    }
+
+    private FunctionalDependency normalizeFunctionalDependency(FunctionalDependency fd) {
+        return new FunctionalDependency(
+                normalizeAttributeList(fd.getLeft(), "Left side of FD"),
+                normalizeAttributeList(fd.getRight(), "Right side of FD")
+        );
+    }
+
+    private List<String> normalizeAttributeList(List<String> rawValues, String fieldName) {
+        if (rawValues == null) {
+            throw new IllegalArgumentException(fieldName + " cannot be empty.");
+        }
+
+        LinkedHashSet<String> normalizedValues = rawValues.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (normalizedValues.isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be empty.");
+        }
+
+        return new ArrayList<>(normalizedValues);
+    }
+
+    private void validateAttributesExist(Set<String> relationAttributes, List<String> fdAttributes, String side) {
+        for (String attribute : fdAttributes) {
+            if (!relationAttributes.contains(attribute)) {
+                throw new IllegalArgumentException(
+                        "Attribute '" + attribute + "' in FD " + side + " side is not in the relation."
+                );
+            }
+        }
+    }
+
+    private List<List<String>> toLists(List<Set<String>> keys) {
+        return keys.stream()
+                .map(ArrayList::new)
+                .collect(Collectors.toList());
+    }
+
+    private String buildSuperkeySkipMessage(int attributeCount) {
+        return "Superkey enumeration was skipped for "
+            + attributeCount
+            + " attributes due to the exponential search space (2 to the power n subsets). Candidate keys were computed using optimized pruning algorithms to avoid exhaustive enumeration.";
+    }
+
+    private record NormalizedRequest(List<String> attributes, List<FunctionalDependency> fds) {
     }
 }

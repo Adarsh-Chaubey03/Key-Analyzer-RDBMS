@@ -8,7 +8,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/api")
@@ -17,15 +21,19 @@ public class KeyController {
     private static final long TIMEOUT_SECONDS = 10;
 
     private final KeyService keyService;
+    private final ExecutorService requestTimeoutExecutor;
 
-    public KeyController(KeyService keyService) {
+    public KeyController(KeyService keyService, ExecutorService requestTimeoutExecutor) {
         this.keyService = keyService;
+        this.requestTimeoutExecutor = requestTimeoutExecutor;
     }
 
     @PostMapping("/compute-keys")
     public ResponseEntity<?> computeKeys(@Valid @RequestBody KeyRequest request) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        Future<KeyResponse> future = executor.submit(() -> keyService.computeKeys(request));
+        CompletableFuture<KeyResponse> future = CompletableFuture.supplyAsync(
+                () -> keyService.computeKeys(request),
+                requestTimeoutExecutor
+        );
 
         try {
             KeyResponse response = future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -48,8 +56,11 @@ public class KeyController {
             return ResponseEntity.internalServerError().body(
                     Map.of("error", "Computation was interrupted.")
             );
-        } finally {
-            executor.shutdownNow();
         }
+    }
+
+    @GetMapping("/health")
+    public Map<String, String> health() {
+        return Map.of("status", "ok");
     }
 }

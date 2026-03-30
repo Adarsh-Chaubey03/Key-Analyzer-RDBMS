@@ -2,191 +2,169 @@ package com.keyanalyzer.core;
 
 import com.keyanalyzer.model.FunctionalDependency;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Pure algorithm class for computing attribute closure, candidate keys, and superkeys.
- * No Spring dependency — fully testable in isolation.
  */
 public class KeyAnalyzer {
 
+    public static final int SUPERKEY_ATTRIBUTE_LIMIT = 8;
+
     private final Set<String> allAttributes;
+    private final List<String> orderedAttributes;
+    private final Map<String, Integer> attributeOrder;
     private final List<FunctionalDependency> fds;
+    private final Map<String, Set<String>> closureCache = new HashMap<>();
+    private final Map<String, Boolean> superkeyCache = new HashMap<>();
     private int stepsCount = 0;
 
     public KeyAnalyzer(Collection<String> attributes, List<FunctionalDependency> fds) {
         this.allAttributes = new LinkedHashSet<>(attributes);
-        this.fds = fds;
+        this.orderedAttributes = new ArrayList<>(this.allAttributes);
+        this.attributeOrder = new HashMap<>();
+        for (int i = 0; i < orderedAttributes.size(); i++) {
+            attributeOrder.put(orderedAttributes.get(i), i);
+        }
+        this.fds = List.copyOf(fds);
     }
 
-    public int getStepsCount() { return stepsCount; }
+    public int getStepsCount() {
+        return stepsCount;
+    }
 
-    // --- Attribute Closure ---
-
-    /**
-     * Computes the closure of a set of attributes under the given FDs.
-     * Iterative fixpoint: keep applying FDs until nothing changes.
-     */
     public Set<String> attributeClosure(Set<String> attrs) {
-        Set<String> closure = new LinkedHashSet<>(attrs);
+        String cacheKey = canonicalKey(attrs);
+        Set<String> cached = closureCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        Set<String> closure = new LinkedHashSet<>(sortAttributes(attrs));
         boolean changed = true;
         while (changed) {
             changed = false;
             stepsCount++;
             for (FunctionalDependency fd : fds) {
-                if (closure.containsAll(fd.getLeft())) {
-                    if (closure.addAll(fd.getRight())) {
-                        changed = true;
-                    }
+                if (closure.containsAll(fd.getLeft()) && closure.addAll(fd.getRight())) {
+                    changed = true;
                 }
             }
         }
-        return closure;
+
+        Set<String> computedClosure = Collections.unmodifiableSet(new LinkedHashSet<>(closure));
+        closureCache.put(cacheKey, computedClosure);
+        return computedClosure;
     }
 
-    /**
-     * Checks if a set of attributes is a superkey (its closure covers all attributes).
-     */
     public boolean isSuperkey(Set<String> attrs) {
-        return attributeClosure(attrs).containsAll(allAttributes);
+        String cacheKey = canonicalKey(attrs);
+        return superkeyCache.computeIfAbsent(cacheKey, ignored -> attributeClosure(attrs).containsAll(allAttributes));
     }
 
-    // --- Candidate Key Discovery ---
-
-    /**
-     * Finds all candidate keys using BFS with RHS-reduction pruning.
-     *
-     * Strategy:
-     * 1. Partition attributes into ESSENTIAL (never on any RHS) and NON-ESSENTIAL.
-     * 2. Start from the set of essential attributes as the seed.
-     * 3. If the seed is already a superkey, it's the only candidate key.
-     * 4. Otherwise, do level-wise BFS: at each level, expand current sets by
-     *    adding one non-essential attribute. Prune any set that is a superset
-     *    of an already-found candidate key.
-     */
     public List<Set<String>> findCandidateKeys() {
         Set<String> rhsAttributes = new LinkedHashSet<>();
         for (FunctionalDependency fd : fds) {
             rhsAttributes.addAll(fd.getRight());
         }
 
-        // Essential attributes: appear ONLY on the left side (never on any RHS)
         Set<String> essential = new LinkedHashSet<>();
         Set<String> nonEssential = new LinkedHashSet<>();
-        for (String attr : allAttributes) {
-            if (!rhsAttributes.contains(attr)) {
-                essential.add(attr);
+        for (String attribute : allAttributes) {
+            if (!rhsAttributes.contains(attribute)) {
+                essential.add(attribute);
             } else {
-                nonEssential.add(attr);
+                nonEssential.add(attribute);
             }
         }
 
         List<Set<String>> candidateKeys = new ArrayList<>();
-
-        // Check if essential set alone is a superkey
         if (isSuperkey(essential)) {
-            candidateKeys.add(essential);
+            candidateKeys.add(new LinkedHashSet<>(essential));
             return candidateKeys;
         }
 
-        // BFS: start with essential set, expand with non-essential attributes level by level
         List<String> nonEssentialList = new ArrayList<>(nonEssential);
-        Queue<Set<String>> queue = new LinkedList<>();
+        Queue<SearchState> queue = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
 
-        // Initialize: essential + each single non-essential attribute OR just essential if empty
-        if (essential.isEmpty()) {
-            for (String attr : nonEssentialList) {
-                Set<String> seed = new LinkedHashSet<>();
-                seed.add(attr);
-                String key = canonicalKey(seed);
-                if (visited.add(key)) {
-                    queue.add(seed);
-                }
-            }
-        } else {
-            // Try essential set first, then expand
-            for (String attr : nonEssentialList) {
-                Set<String> candidate = new LinkedHashSet<>(essential);
-                candidate.add(attr);
-                String key = canonicalKey(candidate);
-                if (visited.add(key)) {
-                    queue.add(candidate);
-                }
+        for (int i = 0; i < nonEssentialList.size(); i++) {
+            Set<String> seed = new LinkedHashSet<>(essential);
+            seed.add(nonEssentialList.get(i));
+            if (visited.add(canonicalKey(seed))) {
+                queue.add(new SearchState(seed, i + 1));
             }
         }
 
         while (!queue.isEmpty()) {
-            Set<String> current = queue.poll();
+            SearchState state = queue.poll();
+            Set<String> current = state.attributes();
 
-            // Prune: skip if current is a superset of a known candidate key
             if (isSupersetOfAny(current, candidateKeys)) {
                 continue;
             }
 
             if (isSuperkey(current)) {
-                candidateKeys.add(current);
-                continue; // Don't expand further — supersets would not be minimal
+                candidateKeys.add(new LinkedHashSet<>(current));
+                continue;
             }
 
-            // Expand: add one more non-essential attribute (maintain sorted order to avoid duplicates)
-            String maxAttr = Collections.max(current);
-            for (String attr : nonEssentialList) {
-                if (attr.compareTo(maxAttr) > 0 && !current.contains(attr)) {
-                    Set<String> expanded = new LinkedHashSet<>(current);
-                    expanded.add(attr);
-                    String key = canonicalKey(expanded);
-                    if (visited.add(key) && !isSupersetOfAny(expanded, candidateKeys)) {
-                        queue.add(expanded);
-                    }
+            for (int i = state.nextIndex(); i < nonEssentialList.size(); i++) {
+                String attribute = nonEssentialList.get(i);
+                if (current.contains(attribute)) {
+                    continue;
+                }
+
+                Set<String> expanded = new LinkedHashSet<>(current);
+                expanded.add(attribute);
+                if (visited.add(canonicalKey(expanded)) && !isSupersetOfAny(expanded, candidateKeys)) {
+                    queue.add(new SearchState(expanded, i + 1));
                 }
             }
         }
 
-        // Sort candidate keys by size, then lexicographically
         candidateKeys.sort(Comparator.<Set<String>>comparingInt(Set::size)
-                .thenComparing(s -> String.join(",", s)));
-
+                .thenComparing(this::canonicalKey));
         return candidateKeys;
     }
 
-    // --- Superkey Generation ---
-
-    /**
-     * Generates all superkeys ONLY if attribute count ≤ 8.
-     * Returns null if skipped due to exponential growth.
-     */
     public List<Set<String>> findSuperkeys() {
-        if (allAttributes.size() > 8) {
-            return null; // Signal to caller to use skip message
+        if (allAttributes.size() > SUPERKEY_ATTRIBUTE_LIMIT) {
+            return null;
         }
 
-        List<String> attrList = new ArrayList<>(allAttributes);
-        int n = attrList.size();
+        int attributeCount = orderedAttributes.size();
         List<Set<String>> superkeys = new ArrayList<>();
 
-        // Enumerate all non-empty subsets via bitmask
-        for (int mask = 1; mask < (1 << n); mask++) {
+        for (int mask = 1; mask < (1 << attributeCount); mask++) {
             Set<String> subset = new LinkedHashSet<>();
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < attributeCount; i++) {
                 if ((mask & (1 << i)) != 0) {
-                    subset.add(attrList.get(i));
+                    subset.add(orderedAttributes.get(i));
                 }
             }
+
             if (isSuperkey(subset)) {
                 superkeys.add(subset);
             }
         }
 
-        // Sort by size, then lexicographically
         superkeys.sort(Comparator.<Set<String>>comparingInt(Set::size)
-                .thenComparing(s -> String.join(",", s)));
-
+                .thenComparing(this::canonicalKey));
         return superkeys;
     }
-
-    // --- Helpers ---
 
     private boolean isSupersetOfAny(Set<String> candidate, List<Set<String>> keys) {
         for (Set<String> key : keys) {
@@ -198,8 +176,15 @@ public class KeyAnalyzer {
     }
 
     private String canonicalKey(Set<String> attrs) {
-        List<String> sorted = new ArrayList<>(attrs);
-        Collections.sort(sorted);
-        return String.join(",", sorted);
+        return sortAttributes(attrs).stream().collect(Collectors.joining(","));
+    }
+
+    private List<String> sortAttributes(Collection<String> attrs) {
+        return attrs.stream()
+                .sorted(Comparator.comparingInt(attributeOrder::get))
+                .collect(Collectors.toList());
+    }
+
+    private record SearchState(Set<String> attributes, int nextIndex) {
     }
 }

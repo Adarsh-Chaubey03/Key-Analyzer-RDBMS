@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DBMS Key Analyzer — Candidate Keys &amp; Superkeys</title>
-    <meta name="description" content="Analyze RDBMS functional dependencies to compute candidate keys and superkeys. A database theory tool for students and professionals.">
+    <title>DBMS Key Analyzer - Candidate Keys and Superkeys</title>
+    <meta
+        name="description"
+        content="Analyze relational schemas and functional dependencies to compute candidate keys and superkeys."
+    >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Ambient Background -->
     <div class="bg-grid"></div>
     <div class="glow-orb glow-orb-1"></div>
     <div class="glow-orb glow-orb-2"></div>
 
     <div class="app-container">
-        <!-- Header -->
         <header class="app-header">
             <div class="header-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -27,19 +28,17 @@
             </div>
             <div>
                 <h1>Key Analyzer</h1>
-                <p class="header-sub">RDBMS Functional Dependency Engine</p>
+                <p class="header-sub">RDBMS functional dependency engine</p>
             </div>
         </header>
 
-        <!-- Main Grid -->
         <main class="main-grid">
-            <!-- Input Panel -->
             <section class="panel input-panel">
                 <div class="panel-header">
                     <span class="panel-dot"></span>
                     <span class="panel-dot"></span>
                     <span class="panel-dot"></span>
-                    <span class="panel-title">INPUT</span>
+                    <span class="panel-title">Input</span>
                 </div>
                 <div class="panel-body">
                     <div class="form-group">
@@ -49,11 +48,11 @@
                         <input
                             type="text"
                             id="attributes-input"
-                            placeholder="e.g.  A, B, C, D"
+                            placeholder="e.g. A, B, C, D or ID, Name, Dept"
                             spellcheck="false"
                             autocomplete="off"
                         >
-                        <span class="input-hint">Comma-separated attribute names</span>
+                        <span class="input-hint">Use commas for multi-character attributes</span>
                     </div>
 
                     <div class="form-group">
@@ -66,13 +65,13 @@
                             placeholder="e.g.&#10;A -> B&#10;B -> C&#10;AC -> D"
                             spellcheck="false"
                         ></textarea>
-                        <span class="input-hint">One FD per line &mdash; use <code>-></code> or <code>→</code></span>
+                        <span class="input-hint">One FD per line. Use <code>-></code> or <code>&rarr;</code>.</span>
                     </div>
 
                     <button id="compute-btn" type="button">
-                        <span class="btn-text">▶ Compute Keys</span>
+                        <span class="btn-text">Compute Keys</span>
                         <span class="btn-loader" hidden>
-                            <span class="spinner"></span> Analyzing…
+                            <span class="spinner"></span> Analyzing...
                         </span>
                     </button>
 
@@ -80,47 +79,41 @@
                 </div>
             </section>
 
-            <!-- Output Panel -->
             <section class="panel output-panel">
                 <div class="panel-header">
                     <span class="panel-dot"></span>
                     <span class="panel-dot"></span>
                     <span class="panel-dot"></span>
-                    <span class="panel-title">OUTPUT</span>
+                    <span class="panel-title">Output</span>
                 </div>
                 <div class="panel-body">
-                    <!-- Placeholder -->
                     <div id="output-placeholder" class="output-placeholder">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
                             <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
                             <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
                             <line x1="12" y1="22.08" x2="12" y2="11.73"/>
                         </svg>
-                        <p>Enter attributes &amp; FDs, then click <strong>Compute Keys</strong></p>
+                        <p>Enter attributes and FDs, then click <strong>Compute Keys</strong>.</p>
                     </div>
 
-                    <!-- Results (hidden initially) -->
                     <div id="results-container" class="results-container" hidden>
-                        <!-- Candidate Keys -->
                         <div class="result-section">
                             <h2 class="result-title">
-                                <span class="result-icon">🔑</span> Candidate Keys
+                                <span class="result-icon">CK</span> Candidate Keys
                             </h2>
                             <div id="candidate-keys" class="keys-grid"></div>
                         </div>
 
-                        <!-- Superkeys -->
                         <div class="result-section">
                             <h2 class="result-title">
-                                <span class="result-icon">🗝️</span> Superkeys
+                                <span class="result-icon">SK</span> Superkeys
                             </h2>
                             <div id="superkeys" class="keys-grid"></div>
                         </div>
 
-                        <!-- Info -->
                         <div class="result-section info-section">
                             <h2 class="result-title">
-                                <span class="result-icon">📊</span> Computation Info
+                                <span class="result-icon">i</span> Computation Info
                             </h2>
                             <div id="info-panel" class="info-grid"></div>
                         </div>
@@ -130,7 +123,7 @@
         </main>
 
         <footer class="app-footer">
-            <span>DBMS Key Analyzer &mdash; Built with Spring Boot + Vanilla JS</span>
+            <span>DBMS Key Analyzer - Spring Boot API + Vanilla JS frontend</span>
         </footer>
     </div>
 

@@ -23,9 +23,6 @@ Thumbs.db
 
 # === Maven ===
 .m2/
-.mvn/
-mvnw
-mvnw.cmd
 
 # === Java ===
 *.class

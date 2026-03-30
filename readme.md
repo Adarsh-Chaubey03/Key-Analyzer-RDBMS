@@ -37,27 +37,24 @@ Superkeys      : {A}, {A,B}, {A,C}, {A,D}, {A,B,C}, {A,B,D}, {A,C,D}, {A,B,C,D}
 - **Java 17+** installed (`java -version` to verify)
 - No Maven installation needed (wrapper included)
 
-### Steps
 
-```bash
-# 1. Clone / navigate to the project
-cd "Key Analyzer – RDBMS"
+### How to Run
 
-# 2. Build and start the server
-java "-Dmaven.multiModuleProjectDirectory=." -classpath ".mvn\wrapper\maven-wrapper.jar" org.apache.maven.wrapper.MavenWrapperMain spring-boot:run
+1. **Clone the repository:**
+  ```bash
+  git clone https://github.com/Adarsh-Chaubey03/Key-Analyzer-RDBMS.git
+  cd "Key Analyzer – RDBMS"
+  ```
 
-# 3. Open in browser
-#    http://localhost:8080
-```
+2. **Start the server:**
+  ```bash
+  java "-Dmaven.multiModuleProjectDirectory=." -classpath ".mvn\wrapper\maven-wrapper.jar" org.apache.maven.wrapper.MavenWrapperMain spring-boot:run
+  ```
+
+3. **Open your browser:**
+  [http://localhost:8080](http://localhost:8080)
 
 The first run will download dependencies (~30s). Subsequent runs start in ~2 seconds.
-
-### Usage
-
-1. Enter comma-separated attributes: `A, B, C, D`
-2. Enter FDs (one per line): `A -> B` or `AB -> CD`
-3. Click **Compute Keys**
-4. View candidate keys, superkeys, and execution stats
 
 ---
 
